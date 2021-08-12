@@ -19,5 +19,7 @@ for a given task.
 Download and run this project in your local computer
 
 ###################<br>
-database
-database name:codeigniter
+Database<br>
+
+Databased saved in database folder<br>
+database name:codeigniter<br>

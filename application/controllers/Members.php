@@ -1,0 +1,246 @@
+<?php
+date_default_timezone_set("Asia/Kolkata");
+if ( ! defined('BASEPATH')) exit('No direct script access allowed');
+
+class Members extends CI_Controller {
+
+    public function __construct() {
+        parent::__construct();
+        // Load member model
+        $this->load->model('member');
+        
+        // Load form helper and library
+        $this->load->helper('form');
+        $this->load->library('form_validation');
+        
+        // Load pagination library
+        $this->load->library('pagination');
+        
+        // Per page limit
+        $this->perPage = 10;
+        
+    }
+        public function logout(){  
+
+            $this->session->unset_userdata('id');
+            return redirect('Auth2/saleslogin');
+        }
+    
+    public function index(){
+
+        
+            
+            $data = array();
+            
+        // Get messages from the session
+        if($this->session->userdata('success_msg')){
+            $data['success_msg'] = $this->session->userdata('success_msg');
+            $this->session->unset_userdata('success_msg');
+            
+        }
+        if($this->session->userdata('error_msg')){
+            $data['error_msg'] = $this->session->userdata('error_msg');
+            $this->session->unset_userdata('error_msg');
+            
+        }
+        
+        // If search request submitted
+        if($this->input->post('submitSearch')){
+            $inputKeywords = $this->input->post('searchKeyword');
+            
+            $searchKeyword = strip_tags($inputKeywords);
+            
+            if(!empty($searchKeyword)){
+                $this->session->set_userdata('searchKeyword',$searchKeyword);
+            
+            }else{
+                $this->session->unset_userdata('searchKeyword');
+            
+            }
+        }elseif($this->input->post('submitSearchReset')){
+            $this->session->unset_userdata('searchKeyword');
+            
+        }
+        $data['searchKeyword'] = $this->session->userdata('searchKeyword');
+        
+        
+        // Get rows count
+        $conditions['searchKeyword'] = $data['searchKeyword'];
+        
+        $conditions['returnType']    = 'count';
+        
+        $rowsCount = $this->member->getRows($conditions);
+        
+        
+        // Pagination config
+        $config['base_url']    = base_url().'index.php/members/index/';
+        $config['uri_segment'] = 3;
+        $config['total_rows']  = $rowsCount;
+        $config['per_page']    = $this->perPage;
+        
+        // Initialize pagination library
+        $this->pagination->initialize($config);
+        
+        // Define offset
+        $page = $this->uri->segment(3);
+        $offset = !$page?0:$page;
+        
+        // Get rows
+        $conditions['returnType'] = '';
+        
+        $conditions['start'] = $offset;
+        $conditions['limit'] = $this->perPage;
+        
+        $data['members'] = $this->member->getRows($conditions);
+        
+        $data['title'] = 'Members List';
+        
+        // Load the list page view
+        
+        $this->load->view('header', $data);
+        $this->load->view('index4', $data);
+       $this->load->view('footer');
+    }
+    public function view($id){
+        $data = array();
+        
+        // Check whether member id is not empty
+        if(!empty($id)){
+            $data['member'] = $this->member->getRows(array('id' => $id));
+            $data['title']  = 'Member Details';
+            
+            // Load the details page view
+            $this->load->view('header', $data);
+            $this->load->view('view', $data);
+            $this->load->view('footer');
+        }else{
+            redirect('members');
+        }
+    }
+    
+    public function add(){
+        $data = array();
+        $memData = array();
+        
+        // If add request is submitted
+        if($this->input->post('memSubmit')){
+            // Form field validation rules
+            
+            $this->form_validation->set_rules('clientname', 'Clientname', 'required');
+            $this->form_validation->set_rules('address', 'Address', 'required');
+            $this->form_validation->set_rules('contact_no', 'Contact No.', 'required|regex_match[/^[0-9]{10}$/]');
+            $this->form_validation->set_rules('review', 'Review', 'required');
+            $this->form_validation->set_rules('sales_name', 'Sales Name', 'required');
+            $this->form_validation->set_rules('datetimepicker', 'FolloUp Date', 'required');
+            
+            // Prepare member data
+            $memData = array(
+                'clientname'=> $this->input->post('clientname'),
+                'address' => $this->input->post('address'),
+                'contact_no'     => $this->input->post('contact_no'),
+                'review'    => $this->input->post('review'),
+                'sales_name'   => $this->input->post('sales_name'),
+                'date'=>date('Y-m-d H:i:s'),
+                'feedback'   => $this->input->post('feedback'),
+                'created'=>date('Y-m-d H:i:s'),
+                'datetimepicker'=> $this->input->post('datetimepicker'),
+                'user_id'=> $this->input->post('user_id')
+
+
+            );
+            
+            // Validate submitted form data
+            if($this->form_validation->run() == true){
+                // Insert member data
+                $insert = $this->member->insert($memData);
+
+                if($insert){
+                    $this->session->set_userdata('success_msg', 'Member has been added successfully.');
+                    redirect('members');
+                }else{
+                    $data['error_msg'] = 'Some problems occured, please try again.';
+                    redirect('members/add');
+                }
+            }
+        }
+        
+        $data['member'] = $memData;
+        $data['title'] = 'Add Member';
+        
+        // Load the add page view
+        $this->load->view('header', $data);
+        $this->load->view('add-edit',$data);
+        $this->load->view('footer');
+    }
+    
+    public function edit($id){
+        $data = array();
+        
+        // Get member data
+        $memData = $this->member->getRows(array('id' => $id));
+        
+        // If update request is submitted
+        if($this->input->post('memSubmit')){
+            // Form field validation rules
+
+            $this->form_validation->set_rules('clientname', 'clientname', 'required');
+            $this->form_validation->set_rules('address', 'address', 'required');
+            $this->form_validation->set_rules('contact_no', 'contact_no', 'required|regex_match[/^[0-9]{10}$/]');
+            $this->form_validation->set_rules('review', 'review', 'required');
+            $this->form_validation->set_rules('sales_name', 'sales_name', 'required');
+            $this->form_validation->set_rules('datetimepicker', 'datetimepicker', 'required');
+            
+            // Prepare member data
+            $memData = array(
+                'clientname'=> $this->input->post('clientname'),
+                'address' => $this->input->post('address'),
+                'contact_no'     => $this->input->post('contact_no'),
+                'review'    => $this->input->post('review'),
+                'sales_name'   => $this->input->post('sales_name'),
+                'date'=>date('Y-m-d H:i:s'),
+                'feedback'   => $this->input->post('feedback'),
+                'created'=>date('Y-m-d H:i:s'),
+                'datetimepicker'   => $this->input->post('datetimepicker')
+            );
+            
+            // Validate submitted form data
+            if($this->form_validation->run() == true){
+                // Update member data
+                $update = $this->member->update($memData, $id);
+
+                if($update){
+                    $this->session->set_userdata('success_msg', 'Member has been updated successfully.');
+                    redirect('members');
+                }else{
+                    $data['error_msg'] = 'Some problems occured, please try again.';
+                    redirect('members/edit');
+                }
+            }
+        }
+
+        $data['member'] = $memData;
+        $data['title'] = 'Update Member';
+        
+        // Load the edit page view
+        $this->load->view('header', $data);
+        $this->load->view('add-edit', $data);
+        $this->load->view('footer');
+    }
+    
+    public function delete($id){
+        // Check whether member id is not empty
+        if($id){
+            // Delete member
+            $delete = $this->member->delete($id);
+            
+            if($delete){
+                $this->session->set_userdata('success_msg', 'Member has been removed successfully.');
+            }else{
+                $this->session->set_userdata('error_msg', 'Some problems occured, please try again.');
+            }
+        }
+        
+        // Redirect to the list page
+        redirect('members');
+    }
+}
